@@ -712,6 +712,22 @@ jobs:
           python "$CHAIN_SCRIPT" --update-lock
           python "$CHAIN_SCRIPT" --header
 
+      - name: Install Metal Toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "===== INSTALLING METAL TOOLCHAIN ====="
+          xcodebuild -downloadComponent MetalToolchain
+
+          echo ""
+          echo "===== VERIFYING METAL COMPILER ====="
+          xcrun --find metal
+          xcrun -sdk macosx metal --version
+          xcrun -sdk iphoneos metal --version
+
+          echo "Metal Toolchain successfully installed."
+
       - name: Build unsigned IPA
         shell: bash
         run: |
