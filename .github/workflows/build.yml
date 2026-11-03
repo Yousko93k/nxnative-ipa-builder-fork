@@ -479,6 +479,16 @@ jobs:
               raise SystemExit(
                   "The pinned nxnative builder changed; mod overlay hook was not applied."
               )
+          if "import os" not in text:
+              if text.startswith("#!"):
+                  first_newline = text.find("\n")
+                  text = (
+                      text[:first_newline + 1]
+                      + "import os\n"
+                      + text[first_newline + 1:]
+                  )
+              else:
+                  text = "import os\n" + text
           script.write_text(text.replace(marker, overlay, 1))
           print(f"Enabled writable RomFS mod overlay in {script}")
           PY
@@ -706,12 +716,27 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
+          set +e
+
           WORK="$RUNNER_TEMP/nxnative"
           GAME_DIR="$RUNNER_TEMP/GameFiles"
+          BUILD_DIR="$GAME_DIR/0100000000010000_build"
           OUTPUT="$RUNNER_TEMP/NxNative.ipa"
           LOG="$RUNNER_TEMP/shader-build.log"
 
-          echo "Starting NxNative build with detailed logging..."
+          echo "===== XCODE VERSION ====="
+          xcodebuild -version 2>&1 || true
+
+          echo ""
+          echo "===== IPHONEOS METAL VERSION ====="
+          xcrun -sdk iphoneos metal --version 2>&1 || true
+
+          echo ""
+          echo "===== MACOS METAL VERSION ====="
+          xcrun -sdk macosx metal --version 2>&1 || true
+
+          echo ""
+          echo "===== STARTING NXNATIVE BUILD ====="
 
           python scripts/build_ipa_from_nsp.py \
             "$GAME_DIR" \
@@ -725,6 +750,29 @@ jobs:
           grep -Ein -C 3 \
             "error:|failed|fatal|metal|metallib|shader|exception" \
             "$LOG" | tail -n 150 || true
+
+          echo ""
+          echo "===== INTERNAL BUILD LOG FILES ====="
+
+          if [[ -d "$BUILD_DIR/logs" ]]; then
+            find "$BUILD_DIR/logs" -type f -print
+
+            while IFS= read -r -d '' file; do
+              echo ""
+              echo "===== $file ====="
+              tail -n 120 "$file" || true
+            done < <(find "$BUILD_DIR/logs" -type f -print0)
+          else
+            echo "Build logs directory not found: $BUILD_DIR/logs"
+          fi
+
+          echo ""
+          echo "===== SHADER OUTPUT FILES ====="
+          find "$BUILD_DIR/shader/ios" -type f -print 2>/dev/null | head -n 100 || true
+
+          echo ""
+          echo "===== SHADER OUTPUT DIRECTORY DETAILS ====="
+          ls -lah "$BUILD_DIR/shader/ios" 2>&1 || true
 
           if [[ "$STATUS" -ne 0 ]]; then
             echo "::error::NxNative build failed with exit code $STATUS."
