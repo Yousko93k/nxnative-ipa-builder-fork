@@ -42,10 +42,16 @@ jobs:
           ref: 971d336516a20dde998f0ede29db7e380a8ee6dd
 
       - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-          pip-version: "26.1.2"
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew install python@3.13
+          PYTHON_PREFIX="$(brew --prefix python@3.13)"
+          mkdir -p "$RUNNER_TEMP/python-bin"
+          ln -sf "$PYTHON_PREFIX/bin/python3.13" "$RUNNER_TEMP/python-bin/python"
+          ln -sf "$PYTHON_PREFIX/bin/pip3.13" "$RUNNER_TEMP/python-bin/pip"
+          echo "$RUNNER_TEMP/python-bin" >> "$GITHUB_PATH"
+          echo "$PYTHON_PREFIX/bin" >> "$GITHUB_PATH"
 
       - name: Set up .NET SDK
         uses: actions/setup-dotnet@v4
@@ -57,7 +63,6 @@ jobs:
         run: |
           set -euo pipefail
           brew install glslang xcodegen zstd spirv-cross unar
-          python -m pip install --upgrade pip
           python -m pip install \
             lz4 capstone fonttools backports.zstd gdown
 
